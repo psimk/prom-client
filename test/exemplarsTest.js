@@ -213,6 +213,7 @@ describe('Exemplars', () => {
 						labelNames: ['method', 'code'],
 						enableExemplars: true,
 					});
+					const vals = (await histogramInstance.get()).values;
 
 					histogramInstance.observe({
 						value: 0.3,
@@ -227,8 +228,6 @@ describe('Exemplars', () => {
 						labels: { method: 'get', code: '200' },
 					});
 
-					const vals = (await histogramInstance.get()).values;
-
 					expect(getValuesByLabel(0.5, vals)[0].value).toEqual(2);
 					expect(
 						getValuesByLabel(0.5, vals)[0].exemplar.labelSet.traceId,
@@ -237,6 +236,53 @@ describe('Exemplars', () => {
 						getValuesByLabel(0.5, vals)[0].exemplar.labelSet.spanId,
 					).toEqual('span_id_test_1');
 					expect(getValuesByLabel(0.5, vals)[0].exemplar.value).toEqual(0.3);
+				});
+			});
+
+			describe('when useCounterValueAsExemplarValue is enabled', () => {
+				it('uses the counter value for the exemplar', async () => {
+					const counterInstance = new Counter({
+						name: 'counter_exemplar_value_as_counter_test',
+						help: 'help',
+						labelNames: ['method', 'code'],
+						enableExemplars: true,
+						useCounterValueAsExemplarValue: true,
+					});
+
+					counterInstance.inc({
+						labelValues: { method: 'get', code: '200' },
+						exemplarLabels: {
+							traceId: 'trace_id_test_1',
+							spanId: 'span_id_test_1',
+						},
+					});
+
+					counterInstance.inc({
+						labelValues: { method: 'get', code: '200' },
+						exemplarLabels: {
+							traceId: 'trace_id_test_2',
+							spanId: 'span_id_test_2',
+						},
+					});
+
+					counterInstance.inc({
+						labelValues: { method: 'get', code: '200' },
+						exemplarLabels: {
+							traceId: 'trace_id_test_3',
+							spanId: 'span_id_test_3',
+						},
+					});
+
+					const vals = await counterInstance.get();
+					expect(vals.values[0].value).toEqual(3);
+					expect(vals.values[0].exemplar.value).toEqual(3);
+					expect(vals.values[0].exemplar.labelSet.traceId).toEqual(
+						'trace_id_test_3',
+					);
+
+					expect(vals.values[0].exemplar.labelSet.spanId).toEqual(
+						'span_id_test_3',
+					);
 				});
 			});
 
